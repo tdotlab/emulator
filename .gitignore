@@ -1,4 +1,6 @@
 /nacre
+/tests/test_scheduler
+/tests/test_core
 /roms
 /.roms-cache
 *.wav

@@ -15,15 +15,25 @@ CPPFLAGS += -Iinclude
 $(warning SDL2 development files not found; live sound is unavailable until SDL2 is installed)
 endif
 
-SOURCES = src/main.c src/chip8.c src/audio.c
+SOURCES = src/main.c src/chip8.c src/audio.c src/scheduler.c
 TARGET = nacre
 
 all: $(TARGET)
 
-$(TARGET): $(SOURCES) include/chip8.h include/audio.h
+$(TARGET): $(SOURCES) include/chip8.h include/audio.h include/scheduler.h
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) -o $@ $(SOURCES) $(LDLIBS) -lm
 
-clean:
-	rm -f $(TARGET)
+tests/test_scheduler: tests/test_scheduler.c src/chip8.c src/scheduler.c include/chip8.h include/scheduler.h
+	$(CC) -Iinclude $(CFLAGS) -o $@ tests/test_scheduler.c src/chip8.c src/scheduler.c
 
-.PHONY: all clean
+tests/test_core: tests/test_core.c src/chip8.c include/chip8.h
+	$(CC) -Iinclude $(CFLAGS) -o $@ tests/test_core.c src/chip8.c
+
+test: tests/test_scheduler tests/test_core
+	./tests/test_scheduler
+	./tests/test_core
+
+clean:
+	rm -f $(TARGET) tests/test_scheduler tests/test_core
+
+.PHONY: all clean test

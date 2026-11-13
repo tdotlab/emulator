@@ -1,9 +1,22 @@
 # Nacre desktop roadmap
 
-Status: proposed implementation plan. Reviewed against `f230915` on 2026-11-13.
+Status: Milestone A is underway. Reviewed against `f230915` on 2026-11-13.
 The current release is a terminal emulator; the desktop features below are planned.
 The product is named Nacre and the executable is `nacre`. The repository remains
 `tdotlab/emulator`; `chip8_*` identifiers describe the emulated architecture.
+
+Implemented: a shared scheduler defaults to 600 instructions per second and ticks
+CHIP-8 timers independently at 60 Hz. Headless WAV duration uses the same clock.
+It caps each live catch-up interval at 250 ms, freezes timers while paused, and
+advances timers during `Fx0A` key waits. Key waits require a fresh press and release.
+`make test` covers timing across redraw intervals, pause, key wait/release during a
+timer countdown, and one second of headless timing. CLI ROM and WAV smoke checks pass.
+Focused core tests cover arithmetic/flag aliasing, calls/returns and stack overflow,
+ROM/memory bounds, and sprite wrapping/collision. The README records current
+instruction choices. The seven classic Timendus ROMs at revision
+`742e9eac9f5d44466c1c9d83fcaa8158c6683cb1` all ran for 20,000 simulated cycles
+without an emulator error. This is a crash smoke check, not a visual correctness
+pass; keypad/quirks menus and the on-screen opcode/flags results need human review.
 
 ## The first result we want
 
@@ -44,14 +57,14 @@ These are source observations, not newly reproduced runtime failures.
 | Area | Current behavior | Work needed |
 | --- | --- | --- |
 | Core boundary | `src/chip8.c` and `include/chip8.h` are separate from terminal input and SDL | Preserve this useful separation; keep the core independently buildable |
-| Time | Interactive mode ticks timers once per displayed frame; headless mode ticks once per 17 instructions | One shared scheduler with independent CPU and 60 Hz timer clocks; deterministic virtual time for headless runs |
-| CPU speed | Interactive default is 10 instructions/frame, approximately 600 instructions/second | Express speed in instructions/second internally; document changes to CLI timing and recording duration |
+| Time | Shared scheduler; live CPU speed defaults to 600 instructions/second, timers independently tick at 60 Hz; headless uses the same timing | Finish core/profile checks and validate scheduling under a Mac event loop |
+| CPU speed | `--speed N` sets N instructions per 60 Hz virtual frame | Preserve/document units and exercise speed changes during a live run |
 | Input | The terminal simulates key holds for a few frames | Desktop uses real down/up events, supports simultaneous keys, and clears held keys on focus loss |
-| Waiting for a key | `Fx0A` immediately accepts any currently held key | Specify press/release semantics and test them while delay/sound timers keep advancing |
-| Compatibility | Vx shifts, unchanged I on register transfer, V0 jump offset, wrapping sprites, and other choices are hardcoded | Document the existing behavior as a custom modern profile; validate profiles before claiming VIP, CHIP-48, or SUPER-CHIP accuracy |
+| Waiting for a key | `Fx0A` blocks for a fresh press and completes on release; timers continue while blocked | Confirm behavior against the selected compatibility profile and keypad tests |
+| Compatibility | Vx shifts, unchanged I on register transfer, V0 jump offset, wrapping sprites, and other choices are documented as the current profile | Validate against external tests before claiming VIP, CHIP-48, or SUPER-CHIP accuracy |
 | Unsupported extensions | The `0nnn` branch ignores system calls, including encodings used by some later extensions | Diagnose known unsupported extension instructions instead of apparently running incompatible games |
 | Audio | Global state combines oscillator, WAV output, and SDL2 playback | Separate reusable synthesis from playback/file sinks; report write/close errors and define final partial recording behavior |
-| Verification | Demo/ROM smoke runs and WAV structure/sample checks passed in the earlier work | Add focused core/scheduler regression tests and an external compatibility ROM pass; `--selftest` currently only runs a drawing demo |
+| Verification | Scheduler/key-wait/core checks, CLI ROM runs, WAV duration/format checks, and a 20,000-cycle smoke run of seven Timendus ROMs pass | Review visual test results in the desktop; crash-free execution alone does not prove opcode correctness |
 | Mac readiness | POSIX terminal frontend and Makefile only; no bundle or release workflow | Desktop entry point, CMake, packaged dependencies, Mac build checks, and real Mac testing |
 | Distribution | No project license or automated release checks are present in the reviewed tree | Owner chooses the license; verify demo/asset permissions and retain dependency notices before distribution |
 
@@ -101,33 +114,28 @@ The existing root ROM paths and CLI remain usable during the migration.
 
 ## Milestone A: reliable execution underneath both frontends
 
-Implement a session and scheduler without changing the CPU implementation wholesale.
-Use a monotonic clock for live runs and injected elapsed time for tests/headless runs.
-Choose an explicit CPU rate, initially 600 instructions/second, and retain independent
-60 Hz timers. Define ordering when CPU and timer events coincide. Cap catch-up work
-after a stall and discard suspended time on pause/resume so reopening a laptop does
-not fast-forward the game or flood the audio queue.
+The scheduler is implemented; a session wrapper remains optional until ROM replacement
+or frontend lifecycle needs it. Use a monotonic clock for live runs and injected
+elapsed time for checks. The default is 600 instructions/second with independent 60 Hz
+timers, and CPU instructions run before a timer tick at the same instant. A single
+live catch-up interval is capped at 250 ms. Pause freezes timer state and discards CPU
+phase so resume cannot replay suspended time.
 
-Make waiting for a key an explicit execution state. Desktop key events must be
-compatible with that state; terminal key-release approximation stays in the terminal
-frontend. Preserve the initial RNG seed for reproducible resets. Keep existing CLI
-flags where practical and explain timing changes, including how `--speed` maps to
-the new rate. Headless WAV duration must follow simulated elapsed time, not a magic
-instruction divisor.
+`Fx0A` now waits for a fresh press and its release; timer ticks continue while waiting.
+Desktop will supply real down/up events; the terminal still approximates release.
+Seed preservation and transactional ROM replacement remain future core work.
 
-Add tests that can catch real faults: arithmetic with VF used as an operand or
-destination, call/return limits, memory boundaries, ROM rejection without losing the
-active game, key wait/release, and timers continuing during key wait. Verify one
-second of virtual time gives 60 timer ticks across different rendering cadences;
-pause and resume must not accumulate a backlog. Use a no-SDL test target.
+Focused core and scheduler checks now run without SDL, covering flag aliasing,
+call/return limits, bounds, sprite wrap/collision, key wait, pause, and independent
+60 Hz timers. Run a pinned external compatibility ROM suite and record differences.
 
-Run a pinned revision of the Timendus opcode, flags, keypad, quirks, and beep tests.
-Record results and intentional profile differences. These ROMs complement focused
-unit tests; a displayed pass screen is evidence only for that tested configuration.
-Keep external test assets and their license notices separate from the shipped app.
+Review the visual output from the pinned Timendus opcode, flags, keypad, quirks, and
+beep tests during interactive Mac testing. The headless smoke run does not check
+their displayed results. Keep external test assets and their license notices
+separate from the shipped app.
 
-**Done when:** the CLI still works, scheduler/core checks pass, known compatibility
-differences are recorded, and the inaccurate timer coupling is gone.
+**Done when:** the CLI still works, focused tests pass, compatibility choices are
+recorded, and visual test results are reviewed during Mac desktop acceptance.
 
 ## Milestone B: the first Finder-launchable window
 
@@ -232,17 +240,14 @@ tests or a Mac acceptance run. The following are suggested choices, not prerequi
 | Mac packaging, dependency audit, release review | Sol, high | Sonnet, high | Distribution failures are often outside ordinary emulator logic |
 | Future SUPER-CHIP/XO-CHIP design | Sol, xhigh | Opus, high | Broader state, rendering, and compatibility changes warrant a separate design pass |
 
-Suggested first prompt after returning to Luna:
+Suggested next prompt for Luna:
 
-> Read AGENTS.md and docs/ROADMAP.md. Implement the scheduler/session portion of
-> Milestone A only. Preserve the CLI and current core where they work. Add independent
-> CPU-rate and 60 Hz timer scheduling with deterministic virtual-time tests; keep
-> timers advancing during key wait, and make pause/resume discard elapsed suspended
-> time. Replace the headless 17-instruction timer rule, document any CLI timing changes,
-> and keep this target free of SDL dependencies. Run the relevant checks and update
-> the roadmap with actual results. Finish with a coherent commit under the owner's
-> existing repository authorization. Leave the desktop and release work for
-> subsequent milestones.
+> Read AGENTS.md and docs/ROADMAP.md. Finish Milestone A by running a pinned Timendus
+> CHIP-8 test suite and recording its revision, results, and mismatches. Add only
+> compatibility fixes backed by a confirmed failure, with focused regression checks.
+> Preserve the CLI, keep tests independent of SDL, and leave UI work for the next
+> milestone. Update the roadmap with evidence and commit the finished slice under the
+> existing repository authorization.
 
 For each following prompt, name the next slice and copy its completion criteria.
 Update this document in place as decisions settle. Add a separate architecture or

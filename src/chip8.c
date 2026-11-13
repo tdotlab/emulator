@@ -147,7 +147,40 @@ static int draw_sprite(Chip8 *chip8, uint8_t x, uint8_t y, uint8_t height,
     return 1;
 }
 
-int chip8_step(Chip8 *chip8, char *error, size_t error_capacity) {
+static Chip8StepResult resume_key_wait(Chip8 *chip8) {
+    if (!chip8->key_wait_for_release) {
+        for (uint8_t key = 0; key < 16; key++) {
+            uint16_t bit = (uint16_t)(1u << key);
+            if (chip8->key_press_edges & bit) {
+                chip8->key_press_edges &= (uint16_t)~bit;
+                chip8->key_wait_key = key;
+                chip8->key_wait_for_release = 1;
+                if (!chip8->keys[key] || (chip8->key_release_edges & bit)) {
+                    chip8->registers[chip8->key_wait_register] = key;
+                    chip8->key_release_edges &= (uint16_t)~bit;
+                    chip8->key_wait_active = 0;
+                    chip8->key_wait_for_release = 0;
+                    return CHIP8_STEP_EXECUTED;
+                }
+                return CHIP8_STEP_WAITING_FOR_KEY;
+            }
+        }
+        return CHIP8_STEP_WAITING_FOR_KEY;
+    }
+
+    uint16_t bit = (uint16_t)(1u << chip8->key_wait_key);
+    if (chip8->keys[chip8->key_wait_key] && !(chip8->key_release_edges & bit)) {
+        return CHIP8_STEP_WAITING_FOR_KEY;
+    }
+    chip8->key_release_edges &= (uint16_t)~bit;
+    chip8->registers[chip8->key_wait_register] = chip8->key_wait_key;
+    chip8->key_wait_active = 0;
+    chip8->key_wait_for_release = 0;
+    return CHIP8_STEP_EXECUTED;
+}
+
+Chip8StepResult chip8_step(Chip8 *chip8, char *error, size_t error_capacity) {
+    if (chip8->key_wait_active) return resume_key_wait(chip8);
     if (chip8->pc > CHIP8_MEMORY_SIZE - 2) {
         if (error && error_capacity > 0) {
             snprintf(error, error_capacity, "program counter %03X is outside memory", chip8->pc);
@@ -285,13 +318,12 @@ int chip8_step(Chip8 *chip8, char *error, size_t error_capacity) {
                     chip8->registers[x] = chip8->delay_timer;
                     break;
                 case 0x0A: {
-                    int pressed = -1;
-                    for (int key = 0; key < 16; key++) {
-                        if (chip8->keys[key]) { pressed = key; break; }
-                    }
-                    if (pressed < 0) chip8->pc = instruction_address;
-                    else chip8->registers[x] = (uint8_t)pressed;
-                    break;
+                    chip8->key_wait_active = 1;
+                    chip8->key_wait_register = x;
+                    chip8->key_wait_for_release = 0;
+                    chip8->key_press_edges = 0;
+                    chip8->key_release_edges = 0;
+                    return CHIP8_STEP_WAITING_FOR_KEY;
                 }
                 case 0x15:
                     chip8->delay_timer = vx;
@@ -346,5 +378,11 @@ void chip8_tick_timers(Chip8 *chip8) {
 }
 
 void chip8_set_key(Chip8 *chip8, uint8_t key, int pressed) {
-    if (key < 16) chip8->keys[key] = (uint8_t)(pressed != 0);
+    if (key < 16) {
+        uint8_t down = (uint8_t)(pressed != 0);
+        uint16_t bit = (uint16_t)(1u << key);
+        if (down && !chip8->keys[key]) chip8->key_press_edges |= bit;
+        if (!down && chip8->keys[key]) chip8->key_release_edges |= bit;
+        chip8->keys[key] = down;
+    }
 }

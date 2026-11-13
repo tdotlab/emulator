@@ -43,7 +43,16 @@ z x c v        A 0 B F
 | `m` | Mute or unmute sound |
 | `Esc` | Quit |
 
-The default speed is 10 cycles per frame. `--speed N` changes it when launching the emulator.
+## Interpreter behavior
+
+Nacre implements the classic CHIP-8 instruction set with these choices: `8xy6` and
+`8xyE` shift `Vx`; `Fx55` and `Fx65` leave `I` unchanged; `Bnnn` adds `V0`; and
+sprites wrap at screen edges. `Fx0A` waits for a new key press and its release.
+SUPER-CHIP and XO-CHIP are not implemented. Legacy `0nnn` system calls are ignored.
+The Timendus compatibility suite has not yet been run.
+
+The default speed is 10 instructions per 60 Hz virtual frame (600 instructions per
+second). `--speed N` changes CPU speed without changing timer or display rates.
 
 ## ROMs
 
@@ -67,7 +76,11 @@ The collection is cloned into `.roms-cache/`; `roms/` is a local symlink to its 
 ./nacre --selftest
 ```
 
-Headless mode runs 2,000 CPU cycles by default and prints the 64×32 framebuffer as `#` and `.`. `--dump PATH` writes it to a file; `--dump -` writes to standard output. `--sound wav` records a mono 48 kHz WAV, including silence, so the recording preserves the emulator's timing. The default output path is `nacre.wav`.
+Headless mode runs 2,000 CPU cycles by default at 600 cycles per virtual second and
+prints the 64×32 framebuffer as `#` and `.`. `--dump PATH` writes it to a file;
+`--dump -` writes to standard output. `--sound wav` records a mono 48 kHz WAV,
+including silence; CHIP-8 timers tick at 60 Hz, so 600 cycles produce one simulated
+second. The default output path is `nacre.wav`.
 
 `make clean` removes the compiled executable. The ROMs and generated WAV files are not tracked by Git.
 
@@ -75,3 +88,4 @@ Headless mode runs 2,000 CPU cycles by default and prints the 64×32 framebuffer
 
 A Mac desktop app is planned. See [the roadmap](docs/ROADMAP.md) for the proposed
 architecture, code review findings, milestones, and implementation handoff.
+Run `make test` for the SDL-free scheduler and key-wait checks.

@@ -1,6 +1,7 @@
 #define _POSIX_C_SOURCE 200809L
 #include "audio.h"
 #include "chip8.h"
+#include "scheduler.h"
 
 #include <errno.h>
 #include <poll.h>
@@ -374,6 +375,12 @@ static void wait_for_frame(const struct timespec *deadline) {
     }
 }
 
+static void audio_timer_tick(Chip8 *chip8, void *userdata) {
+    int sound_enabled = *(int *)userdata;
+    chip8_audio_set_active(sound_enabled && chip8->sound_timer > 0);
+    chip8_audio_tick();
+}
+
 static int run_interactive(Chip8 *chip8, const Options *options, int *sound_enabled,
                            char *error, size_t error_capacity) {
     if (!terminal_open(error, error_capacity)) return 0;
@@ -390,8 +397,12 @@ static int run_interactive(Chip8 *chip8, const Options *options, int *sound_enab
     int key_durations[16] = {0};
     int reset_requested = 0;
     int instruction_error = 0;
+    Chip8Scheduler scheduler;
+    chip8_scheduler_init(&scheduler, (uint32_t)(speed * CHIP8_TIMER_HZ));
     struct timespec deadline;
+    struct timespec last_frame;
     clock_gettime(CLOCK_MONOTONIC, &deadline);
+    last_frame = deadline;
 
     while (running && !stop_requested) {
         poll_input(chip8, key_durations, &running, &paused, &speed,
@@ -411,21 +422,31 @@ static int run_interactive(Chip8 *chip8, const Options *options, int *sound_enab
             memset(key_durations, 0, sizeof(key_durations));
             reset_requested = 0;
             paused = 0;
+            chip8_scheduler_init(&scheduler, (uint32_t)(speed * CHIP8_TIMER_HZ));
         }
 
-        if (!paused) {
-            for (int cycle = 0; cycle < speed; cycle++) {
-                if (!chip8_step(chip8, error, error_capacity)) {
-                    instruction_error = 1;
-                    running = 0;
-                    break;
-                }
-            }
+        struct timespec now;
+        if (clock_gettime(CLOCK_MONOTONIC, &now) != 0) {
+            snprintf(error, error_capacity, "cannot read monotonic clock: %s", strerror(errno));
+            instruction_error = 1;
+            break;
+        }
+        int64_t elapsed = (int64_t)(now.tv_sec - last_frame.tv_sec) * 1000000000LL +
+                          (int64_t)now.tv_nsec - last_frame.tv_nsec;
+        last_frame = now;
+        chip8_scheduler_set_cpu_hz(&scheduler, (uint32_t)(speed * CHIP8_TIMER_HZ));
+        if (elapsed > 0 && !chip8_scheduler_advance(
+                chip8, &scheduler, (uint64_t)elapsed, paused,
+                audio_timer_tick, sound_enabled, error, error_capacity)) {
+            instruction_error = 1;
+            running = 0;
         }
 
-        chip8_audio_set_active(!paused && *sound_enabled && chip8->sound_timer > 0);
-        chip8_audio_tick();
-        if (!paused) chip8_tick_timers(chip8);
+        if (paused || !*sound_enabled || chip8->sound_timer == 0) {
+            chip8_audio_set_active(0);
+        } else {
+            chip8_audio_set_active(1);
+        }
 
         fputs("\033[H", stdout);
         draw_status(speed, paused, *sound_enabled, options->sound_mode);
@@ -442,19 +463,13 @@ static int run_interactive(Chip8 *chip8, const Options *options, int *sound_enab
 }
 
 static int run_headless(Chip8 *chip8, const Options *options) {
-    int timer_counter = 0;
-    for (int cycle = 0; cycle < options->cycles; cycle++) {
-        char error[160];
-        if (!chip8_step(chip8, error, sizeof(error))) {
-            fprintf(stderr, "emulation stopped: %s\n", error);
-            return 0;
-        }
-        if (++timer_counter == 17) {
-            chip8_audio_set_active(chip8->sound_timer > 0);
-            chip8_audio_tick();
-            chip8_tick_timers(chip8);
-            timer_counter = 0;
-        }
+    Chip8Scheduler scheduler;
+    chip8_scheduler_init(&scheduler, CHIP8_DEFAULT_CPU_HZ);
+    char error[160];
+    if (!chip8_scheduler_run_cycles(chip8, &scheduler, (uint32_t)options->cycles,
+                                    audio_timer_tick, &(int){1}, error, sizeof(error))) {
+        fprintf(stderr, "emulation stopped: %s\n", error);
+        return 0;
     }
     return write_framebuffer(chip8, options->dump_path);
 }
