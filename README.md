@@ -1,6 +1,6 @@
 # Nacre
 
-A compact CHIP-8 interpreter in C. It draws the 64×32 display in a terminal and plays the original one-bit buzzer as live audio.
+A compact CHIP-8 interpreter in C, with a terminal frontend and a plain SDL3 desktop prototype. Both frontends use the same emulator core and sound oscillator.
 
 ![IBM Logo](screenshots/ibm-logo.png)
 *IBM Logo — the classic first test.*
@@ -43,13 +43,36 @@ z x c v        A 0 B F
 | `m` | Mute or unmute sound |
 | `Esc` | Quit |
 
+## Desktop prototype
+
+The desktop app uses the same C core and SDL3 frontend on macOS, Windows, and Linux. Install CMake 3.20 or later and a C compiler. CMake packages the demo ROM with each build and links SDL3 statically, so the app does not need a separate SDL installation. The first configure downloads the pinned SDL3 source archive. The SDL license is included with each build.
+
+```sh
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --config Release
+```
+
+The macOS build is `build/Nacre.app`. Windows and Linux produce a `Nacre` executable alongside `assets/hello.ch8` and `THIRD_PARTY_NOTICES.txt`. Launching the app opens the bundled demo; use these controls:
+
+| Key | Action |
+| --- | --- |
+| `1`–`4`, `Q/W/E/R`, `A/S/D/F`, `Z/X/C/V` | CHIP-8 keypad |
+| `Space` | Pause or resume |
+| `F2` | Reset the current ROM |
+| `M` | Mute or unmute |
+| `Cmd+O` / `Ctrl+O` | Open a ROM |
+| `Cmd+Q` / `Ctrl+Q`, `Esc` | Quit |
+
+The window keeps the CHIP-8 display's 2:1 aspect ratio and uses nearest-neighbor scaling. The desktop sound output uses SDL3 and the same oscillator as the terminal and WAV backends. macOS, Windows, and Linux builds are separate because each OS needs its own executable and packaging; the emulator core and desktop source are shared. Linux may need the SDL development packages listed in `.github/workflows/desktop.yml` to build window and audio drivers.
+
 ## Interpreter behavior
 
 Nacre implements the classic CHIP-8 instruction set with these choices: `8xy6` and
 `8xyE` shift `Vx`; `Fx55` and `Fx65` leave `I` unchanged; `Bnnn` adds `V0`; and
 sprites wrap at screen edges. `Fx0A` waits for a new key press and its release.
 SUPER-CHIP and XO-CHIP are not implemented. Legacy `0nnn` system calls are ignored.
-The Timendus compatibility suite has not yet been run.
+Seven classic Timendus ROMs ran for 20,000 simulated cycles without an emulator
+error. This was a crash smoke check; their displayed results have not been reviewed.
 
 The default speed is 10 instructions per 60 Hz virtual frame (600 instructions per
 second). `--speed N` changes CPU speed without changing timer or display rates.
@@ -58,7 +81,7 @@ second). `--speed N` changes CPU speed without changing timer or display rates.
 
 `hello.ch8` draws a small demo. `sound.ch8` sets the buzzer timer and loops, so it is a quick way to hear the sound output.
 
-Pass any compatible `.ch8` file to `./play` or `./nacre`. To download the optional game collection and make it available in the picker, run:
+Pass any compatible `.ch8` file to `./play` or `./nacre`. To download the optional game collection for the terminal picker's local library, run:
 
 ```sh
 ./get-roms.sh
@@ -86,6 +109,6 @@ second. The default output path is `nacre.wav`.
 
 ## Development
 
-A Mac desktop app is planned. See [the roadmap](docs/ROADMAP.md) for the proposed
-architecture, code review findings, milestones, and implementation handoff.
-Run `make test` for the SDL-free scheduler and key-wait checks.
+Run `make test` for the SDL-free scheduler and key-wait checks. The desktop source,
+cross-platform build, and remaining Mac acceptance work are tracked in
+[the roadmap](docs/ROADMAP.md).

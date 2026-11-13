@@ -8,7 +8,8 @@
 #include <SDL.h>
 #endif
 
-#define AUDIO_RATE 48000
+#define AUDIO_RATE CHIP8_AUDIO_SAMPLE_RATE
+#define AUDIO_SAMPLES_PER_TIMER_TICK (AUDIO_RATE / 60)
 #define TONE_FREQUENCY 440.0
 #define TONE_VOLUME 0.20
 #define RAMP_SECONDS 0.005
@@ -17,29 +18,42 @@
 static FILE *wav_file;
 static uint64_t wav_sample_count;
 static int sound_active;
-static double phase;
-static double envelope;
+static Chip8AudioOscillator wav_oscillator;
 
 #ifdef CHIP8_HAVE_SDL2
 static SDL_AudioDeviceID audio_device;
 static SDL_atomic_t live_sound_active;
+static Chip8AudioOscillator live_oscillator;
 #endif
 
-static int16_t next_sample(int active) {
+void chip8_audio_oscillator_reset(Chip8AudioOscillator *oscillator) {
+    oscillator->phase = 0.0;
+    oscillator->envelope = 0.0;
+}
+
+static int16_t next_sample(Chip8AudioOscillator *oscillator, int active) {
     double target = active ? 1.0 : 0.0;
     double ramp = 1.0 / (AUDIO_RATE * RAMP_SECONDS);
-    if (envelope < target) {
-        envelope += ramp;
-        if (envelope > target) envelope = target;
-    } else if (envelope > target) {
-        envelope -= ramp;
-        if (envelope < target) envelope = target;
+    if (oscillator->envelope < target) {
+        oscillator->envelope += ramp;
+        if (oscillator->envelope > target) oscillator->envelope = target;
+    } else if (oscillator->envelope > target) {
+        oscillator->envelope -= ramp;
+        if (oscillator->envelope < target) oscillator->envelope = target;
     }
 
-    double value = sin(phase * 2.0 * PI) * envelope * TONE_VOLUME;
-    phase += TONE_FREQUENCY / AUDIO_RATE;
-    if (phase >= 1.0) phase -= 1.0;
+    double value = sin(oscillator->phase * 2.0 * PI) * oscillator->envelope * TONE_VOLUME;
+    oscillator->phase += TONE_FREQUENCY / AUDIO_RATE;
+    if (oscillator->phase >= 1.0) oscillator->phase -= 1.0;
     return (int16_t)(value * 32767.0);
+}
+
+void chip8_audio_render_samples(Chip8AudioOscillator *oscillator,
+                               int16_t *samples, size_t sample_count,
+                               int active) {
+    for (size_t i = 0; i < sample_count; i++) {
+        samples[i] = next_sample(oscillator, active);
+    }
 }
 
 static void write_u16(FILE *file, uint16_t value) {
@@ -75,9 +89,7 @@ static void audio_callback(void *userdata, Uint8 *stream, int length) {
     int16_t *samples = (int16_t *)stream;
     int count = length / (int)sizeof(*samples);
     int active = SDL_AtomicGet(&live_sound_active) != 0;
-    for (int i = 0; i < count; i++) {
-        samples[i] = next_sample(active);
-    }
+    chip8_audio_render_samples(&live_oscillator, samples, (size_t)count, active);
     if (length % (int)sizeof(*samples) != 0) {
         stream[length - 1] = 0;
     }
@@ -100,6 +112,7 @@ int chip8_audio_open_live(char *error, size_t error_capacity) {
     wanted.channels = 1;
     wanted.samples = 512;
     wanted.callback = audio_callback;
+    chip8_audio_oscillator_reset(&live_oscillator);
     SDL_AtomicSet(&live_sound_active, 0);
     audio_device = SDL_OpenAudioDevice(NULL, 0, &wanted, NULL, 0);
     if (!audio_device) {
@@ -130,8 +143,7 @@ int chip8_audio_open_wav(const char *path, char *error, size_t error_capacity) {
     }
     wav_sample_count = 0;
     sound_active = 0;
-    phase = 0.0;
-    envelope = 0.0;
+    chip8_audio_oscillator_reset(&wav_oscillator);
     write_wav_header(wav_file, 0);
     return 1;
 }
@@ -145,9 +157,11 @@ void chip8_audio_set_active(int active) {
 
 void chip8_audio_tick(void) {
     if (!wav_file) return;
-    const int samples_per_tick = AUDIO_RATE / 60;
-    for (int i = 0; i < samples_per_tick; i++) {
-        uint16_t sample = (uint16_t)next_sample(sound_active);
+    int16_t samples[AUDIO_SAMPLES_PER_TIMER_TICK];
+    chip8_audio_render_samples(&wav_oscillator, samples,
+                               AUDIO_SAMPLES_PER_TIMER_TICK, sound_active);
+    for (int i = 0; i < AUDIO_SAMPLES_PER_TIMER_TICK; i++) {
+        uint16_t sample = (uint16_t)samples[i];
         fputc(sample & 0xFF, wav_file);
         fputc((sample >> 8) & 0xFF, wav_file);
         wav_sample_count++;

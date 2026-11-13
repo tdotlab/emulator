@@ -1,6 +1,9 @@
 /nacre
 /tests/test_scheduler
 /tests/test_core
+/build/
+/cmake-build-*/
+/CMakeUserPresets.json
 /roms
 /.roms-cache
 *.wav

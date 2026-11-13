@@ -1,9 +1,13 @@
 # Nacre desktop roadmap
 
-Status: Milestone A's core and scheduler work is complete. Visual compatibility
-review is deferred until Milestone B has an interactive window.
+Status: Milestone A is complete. A plain SDL3 desktop prototype now shares the C
+core across macOS, Windows, and Linux builds. It includes the bundled demo, ROM
+picker, keyboard input, pause/reset/mute, and timer-driven sound. CMake pins SDL3
+3.4.20 and CI is configured to build each OS and upload artifacts. The desktop
+target has not been compiled in this workspace because CMake and SDL3 are
+unavailable here; CI and native Mac/Windows/Linux runtime checks remain pending.
 Initial architecture review: `f230915` (2026-11-13).
-The current release is a terminal emulator; the desktop features below are planned.
+The terminal frontend remains available while the desktop prototype is validated.
 The product is named Nacre and the executable is `nacre`. The repository remains
 `tdotlab/nacre`; `chip8_*` identifiers describe the emulated architecture.
 
@@ -23,26 +27,27 @@ pass; keypad/quirks menus and the on-screen opcode/flags results need human revi
 ## The first result we want
 
 A friend downloads a Mac app, moves it to Applications, opens it from Finder,
-chooses a ROM, and plays with working controls and sound. She does not install a
-compiler, Homebrew, SDL, Python, or Rust. The app works offline after installation.
+chooses a ROM, and plays with working controls and sound. The shared SDL3 frontend
+also builds for Windows and Linux; each OS gets its own executable and packaging.
 
-The first preview should establish that complete path with a small feature set.
-An elaborate library browser or debugger can follow once the app is pleasant to use.
+The first hands-on acceptance remains the MacBook test because that is the machine
+available to the first tester. Keep the app plain until that path works.
 
 ## Recommended technology
 
-Keep the emulator and desktop frontend in C. Use SDL3 for the window, rendering,
-keyboard events, audio, and native file dialogs. Introduce CMake for separate core,
-CLI, test, and desktop targets and macOS app packaging. Retain the terminal frontend.
+Keep the emulator and desktop frontend in C. Use SDL3 for the shared window,
+rendering, keyboard events, audio, and native file dialogs. CMake builds the shared
+core and desktop app; the existing Makefile continues to build the terminal CLI.
+Keep packaging rules per OS, outside the CHIP-8 core.
 
 SDL3's native file dialog API removes the need for a separate file-picker library.
-Its audio API differs from SDL2, so migrate the existing audio backend as an explicit,
-tested task rather than changing only includes and linker flags. Pin an exact stable
-SDL3 release and archive checksum when implementation begins. Do not follow `main`.
+The desktop uses SDL3 playback with the shared oscillator; the terminal's optional
+live sink still uses SDL2. The CMake desktop build pins an exact SDL3 release and
+archive checksum rather than following `main`.
 
 | Approach | Benefit | Cost for this project | Recommendation |
 | --- | --- | --- | --- |
-| C core + C/SDL3 app | Shares the current code and one multimedia dependency; supports later Windows/Linux frontends | Small amount of platform glue for Mac menus and distribution | First choice |
+| C core + C/SDL3 app | Shares core, input, rendering, and audio across Mac/Windows/Linux | OS-specific packaging and a small amount of menu integration | First choice; prototype in place |
 | C core + SwiftUI/AppKit app | Strong native Mac controls and preferences | Another language and build integration; other platforms need their own shells | Revisit if a deeply native Mac interface becomes the priority |
 | C core + Rust app | Useful for a substantially larger application; strong ownership tools in the shell | FFI, a second toolchain, bindings, and GUI dependency choices; existing C still needs validation | No clear payoff for the first version |
 | C core + Python app | Quick interface experiments | Interpreter/toolkit bundling and native extension packaging | Useful for prototypes; less attractive for this small distributable app |
@@ -61,18 +66,18 @@ These are source observations, not newly reproduced runtime failures.
 | Core boundary | `src/chip8.c` and `include/chip8.h` are separate from terminal input and SDL | Preserve this useful separation; keep the core independently buildable |
 | Time | Shared scheduler; live CPU speed defaults to 600 instructions/second, timers independently tick at 60 Hz; headless uses the same timing | Finish core/profile checks and validate scheduling under a Mac event loop |
 | CPU speed | `--speed N` sets N instructions per 60 Hz virtual frame | Preserve/document units and exercise speed changes during a live run |
-| Input | The terminal simulates key holds for a few frames | Desktop uses real down/up events, supports simultaneous keys, and clears held keys on focus loss |
+| Input | The terminal simulates key holds for a few frames; desktop source maps real down/up events and clears keys on focus loss | Verify simultaneous keys and focus behavior on each native target |
 | Waiting for a key | `Fx0A` blocks for a fresh press and completes on release; timers continue while blocked | Confirm behavior against the selected compatibility profile and keypad tests |
 | Compatibility | Vx shifts, unchanged I on register transfer, V0 jump offset, wrapping sprites, and other choices are documented as the current profile | Validate against external tests before claiming VIP, CHIP-48, or SUPER-CHIP accuracy |
 | Unsupported extensions | The `0nnn` branch ignores system calls, including encodings used by some later extensions | Diagnose known unsupported extension instructions instead of apparently running incompatible games |
-| Audio | Global state combines oscillator, WAV output, and SDL2 playback | Separate reusable synthesis from playback/file sinks; report write/close errors and define final partial recording behavior |
+| Audio | Shared oscillator feeds WAV/SDL2 CLI sinks and the SDL3 desktop callback | Verify both live sinks on devices; report write/close errors and define final partial recording behavior |
 | Verification | Scheduler/key-wait/core checks, CLI ROM runs, WAV duration/format checks, and a 20,000-cycle smoke run of seven Timendus ROMs pass | Review visual test results in the desktop; crash-free execution alone does not prove opcode correctness |
-| Mac readiness | POSIX terminal frontend and Makefile only; no bundle or release workflow | Desktop entry point, CMake, packaged dependencies, Mac build checks, and real Mac testing |
-| Distribution | No project license or automated release checks are present in the reviewed tree | Owner chooses the license; verify demo/asset permissions and retain dependency notices before distribution |
+| Mac readiness | SDL3/CMake prototype and app bundle target exist; no native build or Mac run yet | Build the bundle, verify its bundled ROM/audio, and test launch/input on a real Mac |
+| Distribution | OS build matrix is configured to upload unsigned artifacts and include SDL's license; project license and demo-ROM provenance remain open | Run the matrix; choose a project license, verify demo/asset permissions, and retain notices before distribution |
 
-Live SDL2 playback has not been compiled or heard in this workspace. The existing
-runtime library is present but development files were unavailable through its package
-manager. A successful WAV smoke check does not establish live playback correctness.
+The SDL2 terminal live sink has not been compiled or heard in this workspace. The
+desktop SDL3 audio path also needs a real-device listening check. A successful WAV
+smoke check does not establish live playback correctness.
 
 ## Architecture to grow toward
 
@@ -92,27 +97,29 @@ load should leave the current game intact. The core executes instructions and
 exposes state without knowing about windows, files selected by users, or audio devices.
 The scheduler accepts elapsed time; frontends obtain that time from their platform.
 
-Use one main thread for emulation, input, and rendering initially. Keep audio work
-limited to generating samples from safely published sound state. Do not read or
-mutate the machine from an audio or file-dialog callback. SDL file dialogs are
-asynchronous and their callbacks may run on another thread: copy the result into an
-owned message, then load the ROM on the main thread.
+Use one main thread for emulation, input, and rendering initially. The audio callback
+reads only the atomic sound state and owns its oscillator. Do not read or mutate the
+machine from an audio or file-dialog callback. SDL file dialogs are asynchronous and
+their callbacks may run on another thread: copy the result into an owned event, then
+load the ROM on the main thread.
 
-| Proposed path | Responsibility |
+| Path | Responsibility |
 | --- | --- |
 | `src/core/`, `include/chip8.h` | Machine, opcodes, explicit compatibility settings |
 | `src/runtime/` | Session lifecycle, ROM loading, scheduler, deterministic headless execution |
 | `src/cli/` | Existing argument handling and terminal renderer |
-| `src/desktop/` | SDL events, display, file opening, app commands |
-| `src/audio/` | Oscillator, SDL3 playback, WAV capture |
-| `platform/macos/` | Bundle metadata, icon, and any native menu adapter |
+| `src/main.c`, `Makefile` | Existing terminal and headless CLI |
+| `src/audio.c`, `include/audio.h` | Shared oscillator and CLI WAV/SDL2 sinks |
+| `src/desktop/main.c` | Shared SDL3 window, input, ROM picker, and playback |
+| `CMakeLists.txt`, `.github/workflows/desktop.yml` | Pinned SDL3 build and OS build artifacts |
+| macOS bundle properties in CMake | Bundle metadata; add native adapters only if later needed |
 | `tests/` | Small C regression programs and compatibility test instructions |
 | `cmake/`, `tools/` | Dependency configuration and packaging scripts |
 | `assets/` | App resources and demo source with clear provenance |
 | `docs/` | Current architecture, release instructions, and this roadmap |
 
-Create directories as their code arrives. Avoid an empty framework of abstractions.
-The existing root ROM paths and CLI remain usable during the migration.
+Keep the current compact layout until a real feature needs a split. The existing root
+ROM paths and CLI remain usable alongside the desktop frontend.
 
 ## Milestone A: reliable execution underneath both frontends
 
@@ -124,7 +131,7 @@ live catch-up interval is capped at 250 ms. Pause freezes timer state and discar
 phase so resume cannot replay suspended time.
 
 `Fx0A` now waits for a fresh press and its release; timer ticks continue while waiting.
-Desktop will supply real down/up events; the terminal still approximates release.
+The desktop maps real down/up events in source; native input validation is pending. The terminal still approximates release.
 Seed preservation and transactional ROM replacement remain future core work.
 
 Focused core and scheduler checks now run without SDL, covering flag aliasing,
@@ -137,46 +144,39 @@ beep tests during interactive Mac testing. The headless smoke run does not check
 their displayed results. Keep external test assets and their license notices
 separate from the shipped app.
 
-**Done when:** the CLI works, focused tests pass, current compatibility choices are
-documented, and the pinned ROMs execute without emulator errors. Review their visual
-results in Milestone B, which adds an interactive display.
+**Done when:** the CLI works, focused checks pass, current compatibility choices are
+documented, and the pinned ROMs execute without emulator errors. Their visual
+results remain part of Milestone B's native acceptance.
 
-## Milestone B: the first Finder-launchable window
+## Milestone B: plain cross-platform desktop prototype
 
-Introduce CMake targets for the SDL-free core/tests, CLI, and SDL3 desktop app. Make
-desktop dependencies optional for core-only builds. Keep `make` working as a thin
-wrapper or retain its existing path until parity is established; update the README
-when the actual build commands change.
+Implemented in `src/desktop/main.c`: one SDL3 frontend renders the 64×32 display,
+preserves its 2:1 ratio with nearest-neighbor scaling, loads the bundled demo or a
+selected ROM, maps real key down/up events, and provides pause, reset, mute, and
+timer-driven sound. CMake creates a macOS `.app` and Windows/Linux
+executables with the same source. SDL3 is linked statically; the existing Makefile
+CLI remains separate.
 
-Pin and build SDL3 within the release build. Prefer a static SDL3 library for the Mac
-app so there is no separate SDL installation or external framework path to resolve.
-Use normal system frameworks as required by SDL. If a bundled dynamic framework is
-chosen instead, validate its bundle path and signing explicitly. Do not ship two SDL
-major versions; migrate the CLI live-audio sink alongside the desktop backend.
+The CI matrix is configured to build all three OS targets and upload artifacts. It
+has not run yet for this prototype. This environment also lacks CMake and SDL3
+headers, so no local desktop compile or native runtime claim is made.
 
-Create an SDL3 window that renders the 64×32 framebuffer with nearest-neighbor
-sampling, correct aspect ratio, Retina handling, and integer scaling where space
-permits. Resize/letterbox cleanly. Reuse the same session and audio synthesis as the
-CLI. Produce an initial macOS `.app` bundle with CMake's `MACOSX_BUNDLE` support.
+**Acceptance still pending:** CI must compile the three builds; a Mac user must launch
+the app, open a ROM, verify keypad down/up behavior and sound, and inspect the
+Timendus opcode, flags, keypad, and quirks results. Windows and Linux need native
+launch/input/audio checks before they are described as runtime-verified.
 
-**Done when:** a Mac build launches the bundle from Finder and runs a verified demo
-with sound and real key down/up events. Review Timendus opcode, flags, keypad, and
-quirks results in that interactive build. Linux checks and dummy SDL drivers can help
-CI but do not replace this Mac acceptance check.
+## Milestone C: friend-test preview
 
-## Milestone C: a usable private preview
+Add a Mac app menu and an accessible key-map surface; consider drag-and-drop and
+fullscreen after the first test. The prototype uses `Cmd+O`, `Cmd+Q`, and Escape
+keyboard shortcuts without a menu. Keep presentation plain until the ROM-to-game
+path works for the friend.
 
-Add native Open ROM (`Cmd+O`), drag-and-drop, pause/resume, reset, mute/volume,
-fullscreen, and an accessible way to see the key map. Provide an obvious opening
-state and app-level commands rather than requiring knowledge of CLI flags. Use a
-small Mac menu adapter if needed; avoid introducing a general GUI toolkit just for
-a handful of commands. Use `Cmd+Q` to quit; Escape can leave fullscreen.
-
-On focus loss, pause execution, release all emulated keys, and silence sound. Resume
-only when appropriate, preserving a user's explicit pause. Treat file-dialog cancel
-as a normal outcome. Show understandable errors for bad ROMs and unavailable audio;
-allow silent play when no output device is available. Never crash because a recent
-ROM was moved or removed.
+The prototype pauses and releases keys on focus loss, treats dialog cancellation as
+normal, keeps the previous game if a ROM load fails, and continues silently if audio
+cannot open. Verify these behaviors on macOS and improve any rough edges the friend
+finds. Never crash because a recent ROM was moved or removed.
 
 Create a tiny original demo ROM with checked-in source/reproducible build steps, or
 verify the provenance of the existing demos before bundling them. The optional
@@ -185,8 +185,9 @@ collection at launch. Do not assume a downloadable ROM collection grants permiss
 to redistribute every game.
 
 **Done when:** the friend can open the preview, load a ROM, play, change focus,
-pause/reset/mute, and quit without Terminal, package installation, or a crash.
-This is the first release-sized slice; stop here for hands-on feedback.
+pause/reset/mute, and quit without Terminal or a separately installed SDL runtime.
+Use that feedback before adding visual polish or a larger library interface.
+
 
 ## Milestone D: polish and repeatable Mac distribution
 
@@ -207,9 +208,9 @@ the hardened runtime, Apple's notarization service, and a stapled ticket. Use cu
 `notarytool`/`stapler` tooling. Keep signing credentials in approved secret storage.
 An unsigned/private preview is a distinct artifact and must be labeled accordingly.
 
-Add CI for core tests/sanitizers on Linux and core/desktop builds on macOS. Produce
-unsigned preview artifacts on demand; signed/tagged releases require the agreed
-release authorization and signing setup. Inspect binary architectures and dynamic
+The desktop build matrix already uploads unsigned artifacts. Add core tests/sanitizers
+and verify each downloaded app before calling it a preview. Signed/tagged releases
+require the agreed release authorization and signing setup. Inspect architectures and dynamic
 dependencies and test the downloaded, quarantined artifact on a Mac without developer
 dependencies. Check first launch, offline launch, sound, file dialogs, focus/sleep,
 fullscreen, and relaunch from a path containing spaces.
@@ -228,7 +229,8 @@ Do not claim Intel or older-macOS runtime testing if it was only cross-compiled.
 | 4 | Save states | Use a versioned format with ROM identity, profile, RNG, and machine state; never dump a raw C struct |
 | 5 | Small debugger | Pause/step, registers, memory, disassembly, breakpoints; useful for learning and ROM authors |
 | 6 | SUPER-CHIP | A separate project milestone: larger display modes, scrolling, extra instructions, and compatibility tests |
-| 7 | Windows/Linux packaging | Reuses SDL frontend; audit the POSIX CLI separately before claiming Windows CLI support |
+| 7 | Windows release | Reuse the SDL frontend; verify native input/audio and choose a Windows install format |
+| Later | Linux release | Reuse the SDL frontend; choose package formats and validate on the intended distributions |
 | Later | XO-CHIP, rewind, web build | Each changes scope materially; decide based on actual use after the base app works |
 
 ## Model-sized implementation handoff
@@ -247,14 +249,12 @@ tests or a Mac acceptance run. The following are suggested choices, not prerequi
 
 Suggested next prompt for Luna:
 
-> Read AGENTS.md and docs/ROADMAP.md. Implement the first vertical slice of Milestone
-> B: add a minimal SDL3 window that loads the built-in demo, renders the CHIP-8 display,
-> and maps real key down/up events into the existing core. Reuse the scheduler and
-> audio timer behavior. Keep presentation plain and functional; leave visual styling
-> for later. Add the CMake desktop target and preserve CLI/test targets. Test the core
-> and every target available here. Record Mac verification that needs a Mac as pending.
-> Update the roadmap with evidence and commit the finished slice under the existing
-> repository authorization.
+> Read AGENTS.md and docs/ROADMAP.md. Build the CMake desktop target for macOS,
+> Windows, and Linux. Fix compile or packaging failures without adding visual polish.
+> Run the Mac artifact on the friend's Mac and verify ROM opening, keyboard input,
+> pause/reset/mute, focus loss, and sound. Record OS/version and exact results. Keep
+> Windows/Linux runtime claims open until tested on those systems. Update the README
+> and roadmap with evidence.
 
 For each following prompt, name the next slice and copy its completion criteria.
 Update this document in place as decisions settle. Add a separate architecture or

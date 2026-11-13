@@ -1,8 +1,9 @@
 # Project guidance
 
-Nacre is a C CHIP-8 terminal/headless emulator, launched with `nacre`. The Mac
-desktop app is planned, not implemented. Keep `chip8_*` and `CHIP8_*` identifiers
-for the emulated architecture; use Nacre for product branding.
+Nacre is a C CHIP-8 emulator with terminal/headless and SDL3 desktop frontends.
+The desktop frontend is shared across macOS, Windows, and Linux; keep OS-specific
+packaging outside the emulator core. Keep `chip8_*` and `CHIP8_*` identifiers for
+the emulated architecture; use Nacre for product branding.
 
 - Read README.md for current setup, commands, and entry points.
 - Read docs/ROADMAP.md for the desktop design, review findings, milestones, and open decisions.

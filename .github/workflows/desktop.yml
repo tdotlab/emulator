@@ -1,0 +1,58 @@
+name: Desktop builds
+
+on:
+  push: {}
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            platform: macOS
+            artifact_path: build/Nacre.app
+          - os: windows-latest
+            platform: Windows
+            artifact_path: |
+              build/Release/Nacre.exe
+              build/Release/assets/hello.ch8
+              build/Release/THIRD_PARTY_NOTICES.txt
+          - os: ubuntu-latest
+            platform: Linux
+            artifact_path: |
+              build/Nacre
+              build/assets/hello.ch8
+              build/THIRD_PARTY_NOTICES.txt
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Linux SDL build dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes \
+            libasound2-dev libaudio-dev libdbus-1-dev libdecor-0-dev \
+            libdrm-dev libegl1-mesa-dev libfribidi-dev libgbm-dev \
+            libgl1-mesa-dev libgles2-mesa-dev libibus-1.0-dev libjack-dev \
+            libpipewire-0.3-dev libpulse-dev libsndio-dev libthai-dev \
+            libudev-dev libusb-1.0-0-dev libwayland-dev libx11-dev \
+            libxcursor-dev libxext-dev libxfixes-dev libxi-dev \
+            libxinerama-dev libxkbcommon-dev libxrandr-dev libxrender-dev \
+            libxss-dev libxtst-dev
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+      - name: Build
+        run: cmake --build build --config Release --parallel
+      - name: Upload app
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nacre-${{ matrix.platform }}
+          path: ${{ matrix.artifact_path }}
+          if-no-files-found: error
