@@ -70,3 +70,8 @@ The collection is cloned into `.roms-cache/`; `roms/` is a local symlink to its 
 Headless mode runs 2,000 CPU cycles by default and prints the 64×32 framebuffer as `#` and `.`. `--dump PATH` writes it to a file; `--dump -` writes to standard output. `--sound wav` records a mono 48 kHz WAV, including silence, so the recording preserves the emulator's timing. The default output path is `chip8.wav`.
 
 `make clean` removes the compiled executable. The ROMs and generated WAV files are not tracked by Git.
+
+## Development
+
+A Mac desktop app is planned. See [the roadmap](docs/ROADMAP.md) for the proposed
+architecture, code review findings, milestones, and implementation handoff.
