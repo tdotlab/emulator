@@ -320,10 +320,11 @@ static int render_frame(App *app) {
 static char *default_rom_path(void) {
     char *base = SDL_GetBasePath();
     if (!base) return NULL;
+    char *path = NULL;
 #ifdef __APPLE__
-    char *path = SDL_asprintf("%s../Resources/hello.ch8", base);
+    SDL_asprintf(&path, "%s../Resources/hello.ch8", base);
 #else
-    char *path = SDL_asprintf("%sassets/hello.ch8", base);
+    SDL_asprintf(&path, "%sassets/hello.ch8", base);
 #endif
     SDL_free(base);
     return path;
