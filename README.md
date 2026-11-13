@@ -1,104 +1,74 @@
-# Chip-8 Emulator (C, stdlib only)
+# CHIP-8 emulator
 
-A minimal Chip-8 interpreter written in plain C. No dependencies beyond a C compiler.
+A small CHIP-8 interpreter written in C, with a terminal display and no external library dependencies. It can run interactively or dump its framebuffer for headless testing.
 
-## Build
+![IBM Logo](screenshots/ibm-logo.png)
+*IBM Logo — the classic first test.*
+
+![Tetris](screenshots/tetris.png)
+*Tetris — a piece falling into the well.*
+
+![Breakout](screenshots/breakout.png)
+*Breakout — bricks and paddle, waiting for serve.*
+
+These images show the emulator's 64×32 framebuffer, rendered as PNGs.
+
+## Build and play
+
+You need a C99 compiler and `make`:
 
 ```sh
 make
+./play path/to/game.ch8
+# Or run the emulator directly:
+./chip8 path/to/game.ch8 --play
 ```
 
-## Play a game
+The terminal display uses half-block characters to fit the 64×32 framebuffer into 64×16 character cells. Use `--render full` for double-width blocks, or `--render half` for the default.
 
-```sh
-./play                 # pick a ROM from the bundled collection
-./play path/to.ch8     # play a specific ROM
-./chip8 path/to.ch8 --play [--speed N]
+CHIP-8 keys map to the keyboard like this:
+
+```text
+1 2 3 4        1 2 3 C
+Q W E R   →    4 5 6 D
+A S D F        7 8 9 E
+Z X C V        A 0 B F
 ```
 
-The emulator renders the 64x32 display in the terminal using half-block characters
-(64x16 cells), so it fits in an 80-column terminal.
+| Key | Action |
+| --- | --- |
+| `p` | Pause or resume |
+| `R` | Reset the ROM |
+| `+` / `-` | Increase or decrease speed |
+| `m` | Mute or unmute |
+| `Esc` or uppercase `Q` | Quit |
 
-Key map:
-
-```
-1 2 3 4        -> Chip-8 keys 1 2 3 C
-Q W E R        -> 4 5 6 D
-A S D F        -> 7 8 9 E
-Z X C V        -> A 0 B F
-```
-
-Controls:
-
-| Key     | Action                        |
-| ------- | ----------------------------- |
-| `p`     | pause / resume                |
-| `R`     | reset the ROM                 |
-| `+`/`-` | increase / decrease speed     |
-| `m`     | mute / unmute sound           |
-| `ESC`   | quit                          |
-
-Uppercase `Q` also quits. `--speed N` sets cycles per frame (default 10, ~600
-instructions/sec at 60 fps); `+`/`-` adjust it live. Keys are held for a few
-frames after a press, so taps and short holds both register.
-
-The display defaults to half-block rendering. Use `--render full` for the old
-double-width `██` rendering, or `--render half` to restore the compact one.
-
-## Screenshots
-
-The 64x32 display, captured from the emulator running real ROMs. The images
-are SVG renderings of the exact framebuffer — no ROMs are included in this repo.
-
-![IBM Logo](screenshots/ibm-logo.svg)
-*IBM Logo — the classic first test.*
-
-![Tetris](screenshots/tetris.svg)
-*Tetris (Fran Dachille, 1991) mid-game — a piece falling into the well.*
-
-![Breakout](screenshots/breakout.svg)
-*Breakout (Carmelo Cortez, 1979) — bricks and paddle, waiting for serve.*
+Use `--speed N` to set cycles per frame (default 10, approximately 600 instructions per second at 60 fps). Keys remain held for a few frames after a press, so short holds register.
 
 ## ROMs
 
-The `roms` directory is a symlink to a CHIP-8 program pack (75 games, demos and
-programs). To download or update it:
+The repository includes two small test programs: `hello.ch8` draws a demo, and `sound.ch8` exercises the buzzer. You can play any compatible `.ch8` file by passing its path to `./play` or `./chip8`.
+
+`./play` without an argument lists files in a local `roms/` directory. The optional `./get-roms.sh` script clones or updates the [kripod CHIP-8 ROM collection](https://github.com/kripod/chip8-roms) at `$HOME/workspace/little-mike-space/chip8-roms`; it does not create `roms/` here. To use the picker with that collection, create a symlink:
 
 ```sh
 ./get-roms.sh
+ln -s "$HOME/workspace/little-mike-space/chip8-roms/games" roms
+./play
 ```
 
-The collection comes from <https://github.com/kripod/chip8-roms>. Any `.ch8`
-file can be played directly: `./chip8 my-game.ch8 --play`.
-
-## Headless mode (testing)
-
-```sh
-./chip8 path/to/rom.ch8 [--cycles N] [--dump path|-] [--selftest]
-```
-
-- `--cycles N` — number of CPU cycles to run (default 2000).
-- `--dump path` — write the 64x32 framebuffer to `path` (default stdout).
-- `--selftest` — run an embedded ROM that draws a `0` digit.
+## Headless testing
 
 ```sh
 ./chip8 hello.ch8 --cycles 50
+./chip8 path/to/rom.ch8 --cycles 2000 --dump framebuffer.txt
+./chip8 --selftest
 ```
+
+Headless mode runs 2,000 CPU cycles by default and writes the framebuffer as `#` and `.` to standard output. `--dump` selects an output file; `--dump -` selects standard output. A program waiting for a key with `Fx0A` blocks in headless mode.
 
 ## Sound
 
-The Chip-8 has a 1-bit buzzer that sounds while `sound_timer > 0`.
+The CHIP-8 buzzer sounds while the sound timer is nonzero. Interactive mode defaults to the terminal bell. Choose `--sound bell`, `--sound off`, or `--sound wav --sound-file out.wav` to write a synthesized 440 Hz square wave. `sound.ch8` sets the timer for 10 ticks and loops.
 
-- `--sound bell` — ring the terminal bell once per 60 Hz tick (default in `--play`).
-- `--sound wav --sound-file out.wav` — write a synthesized 440 Hz square wave to a WAV file.
-- `--sound off` — silence.
-
-`sound.ch8` sets the buzzer for 10 timer ticks and loops; it is a handy test ROM.
-
-## Notes
-
-- Display is 64x32; headless `--dump` writes `#` (on) / `.` (off).
-- Timers tick at ~60 Hz.
-- Keyboard input is tracked in `keys[16]`; `Fx0A` waits for a press. In headless
-  mode this blocks, so most ROMs should be tested with a cycle cap.
-- No graphics backend beyond the terminal front-end; SDL is a natural next step.
+Run `make clean` to remove the compiled executable.

@@ -4,8 +4,8 @@ TARGET = chip8
 
 all: $(TARGET)
 
-$(TARGET): chip8.c
-	$(CC) $(CFLAGS) -o $(TARGET) chip8.c
+$(TARGET): src/chip8.c
+	$(CC) $(CFLAGS) -o $(TARGET) $<
 
 clean:
 	rm -f $(TARGET)
