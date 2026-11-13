@@ -1,9 +1,11 @@
 # Nacre desktop roadmap
 
-Status: Milestone A is underway. Reviewed against `f230915` on 2026-11-13.
+Status: Milestone A's core and scheduler work is complete. Visual compatibility
+review is deferred until Milestone B has an interactive window.
+Initial architecture review: `f230915` (2026-11-13).
 The current release is a terminal emulator; the desktop features below are planned.
 The product is named Nacre and the executable is `nacre`. The repository remains
-`tdotlab/emulator`; `chip8_*` identifiers describe the emulated architecture.
+`tdotlab/nacre`; `chip8_*` identifiers describe the emulated architecture.
 
 Implemented: a shared scheduler defaults to 600 instructions per second and ticks
 CHIP-8 timers independently at 60 Hz. Headless WAV duration uses the same clock.
@@ -127,15 +129,17 @@ Seed preservation and transactional ROM replacement remain future core work.
 
 Focused core and scheduler checks now run without SDL, covering flag aliasing,
 call/return limits, bounds, sprite wrap/collision, key wait, pause, and independent
-60 Hz timers. Run a pinned external compatibility ROM suite and record differences.
+60 Hz timers. Seven pinned Timendus ROMs execute 20,000 cycles without emulator
+errors; this smoke run does not validate their on-screen results.
 
 Review the visual output from the pinned Timendus opcode, flags, keypad, quirks, and
 beep tests during interactive Mac testing. The headless smoke run does not check
 their displayed results. Keep external test assets and their license notices
 separate from the shipped app.
 
-**Done when:** the CLI still works, focused tests pass, compatibility choices are
-recorded, and visual test results are reviewed during Mac desktop acceptance.
+**Done when:** the CLI works, focused tests pass, current compatibility choices are
+documented, and the pinned ROMs execute without emulator errors. Review their visual
+results in Milestone B, which adds an interactive display.
 
 ## Milestone B: the first Finder-launchable window
 
@@ -156,7 +160,8 @@ permits. Resize/letterbox cleanly. Reuse the same session and audio synthesis as
 CLI. Produce an initial macOS `.app` bundle with CMake's `MACOSX_BUNDLE` support.
 
 **Done when:** a Mac build launches the bundle from Finder and runs a verified demo
-with sound and real key down/up events. Linux checks and dummy SDL drivers can help
+with sound and real key down/up events. Review Timendus opcode, flags, keypad, and
+quirks results in that interactive build. Linux checks and dummy SDL drivers can help
 CI but do not replace this Mac acceptance check.
 
 ## Milestone C: a usable private preview
@@ -242,12 +247,14 @@ tests or a Mac acceptance run. The following are suggested choices, not prerequi
 
 Suggested next prompt for Luna:
 
-> Read AGENTS.md and docs/ROADMAP.md. Finish Milestone A by running a pinned Timendus
-> CHIP-8 test suite and recording its revision, results, and mismatches. Add only
-> compatibility fixes backed by a confirmed failure, with focused regression checks.
-> Preserve the CLI, keep tests independent of SDL, and leave UI work for the next
-> milestone. Update the roadmap with evidence and commit the finished slice under the
-> existing repository authorization.
+> Read AGENTS.md and docs/ROADMAP.md. Implement the first vertical slice of Milestone
+> B: add a minimal SDL3 window that loads the built-in demo, renders the CHIP-8 display,
+> and maps real key down/up events into the existing core. Reuse the scheduler and
+> audio timer behavior. Keep presentation plain and functional; leave visual styling
+> for later. Add the CMake desktop target and preserve CLI/test targets. Test the core
+> and every target available here. Record Mac verification that needs a Mac as pending.
+> Update the roadmap with evidence and commit the finished slice under the existing
+> repository authorization.
 
 For each following prompt, name the next slice and copy its completion criteria.
 Update this document in place as decisions settle. Add a separate architecture or
