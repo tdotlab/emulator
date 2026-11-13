@@ -1,4 +1,4 @@
-# CHIP-8 emulator
+# Nacre
 
 A compact CHIP-8 interpreter in C. It draws the 64×32 display in a terminal and plays the original one-bit buzzer as live audio.
 
@@ -21,7 +21,7 @@ You need a C99 compiler, `make`, and SDL2 development files for live audio. `pkg
 make
 ./play path/to/game.ch8
 # Or run a specific ROM directly:
-./chip8 path/to/game.ch8 --play
+./nacre path/to/game.ch8 --play
 ```
 
 The live sound is a smooth 440 Hz tone that follows the CHIP-8 sound timer. The `m` key mutes and unmutes it. Use `--sound off` for a silent play session. SDL2 is only needed for live audio; without it, the program still builds for headless use and WAV capture.
@@ -49,7 +49,7 @@ The default speed is 10 cycles per frame. `--speed N` changes it when launching 
 
 `hello.ch8` draws a small demo. `sound.ch8` sets the buzzer timer and loops, so it is a quick way to hear the sound output.
 
-Pass any compatible `.ch8` file to `./play` or `./chip8`. To download the optional game collection and make it available in the picker, run:
+Pass any compatible `.ch8` file to `./play` or `./nacre`. To download the optional game collection and make it available in the picker, run:
 
 ```sh
 ./get-roms.sh
@@ -61,13 +61,13 @@ The collection is cloned into `.roms-cache/`; `roms/` is a local symlink to its 
 ## Headless use
 
 ```sh
-./chip8 hello.ch8 --cycles 50
-./chip8 path/to/rom.ch8 --cycles 2000 --dump framebuffer.txt
-./chip8 sound.ch8 --cycles 300 --sound wav --sound-file sound.wav
-./chip8 --selftest
+./nacre hello.ch8 --cycles 50
+./nacre path/to/rom.ch8 --cycles 2000 --dump framebuffer.txt
+./nacre sound.ch8 --cycles 300 --sound wav --sound-file sound.wav
+./nacre --selftest
 ```
 
-Headless mode runs 2,000 CPU cycles by default and prints the 64×32 framebuffer as `#` and `.`. `--dump PATH` writes it to a file; `--dump -` writes to standard output. `--sound wav` records a mono 48 kHz WAV, including silence, so the recording preserves the emulator's timing. The default output path is `chip8.wav`.
+Headless mode runs 2,000 CPU cycles by default and prints the 64×32 framebuffer as `#` and `.`. `--dump PATH` writes it to a file; `--dump -` writes to standard output. `--sound wav` records a mono 48 kHz WAV, including silence, so the recording preserves the emulator's timing. The default output path is `nacre.wav`.
 
 `make clean` removes the compiled executable. The ROMs and generated WAV files are not tracked by Git.
 

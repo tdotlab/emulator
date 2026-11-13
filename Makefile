@@ -16,7 +16,7 @@ $(warning SDL2 development files not found; live sound is unavailable until SDL2
 endif
 
 SOURCES = src/main.c src/chip8.c src/audio.c
-TARGET = chip8
+TARGET = nacre
 
 all: $(TARGET)
 

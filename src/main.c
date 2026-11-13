@@ -104,12 +104,12 @@ static int parse_number(const char *text, long minimum, long maximum, long *valu
 
 static void print_usage(FILE *stream, const char *program) {
     fprintf(stream,
-        "Usage: %s [ROM] [options]\n"
+        "Nacre\nUsage: %s [ROM] [options]\n"
         "  --play                 run with terminal controls and live audio\n"
         "  --cycles N             instruction count in headless mode (default 2000)\n"
         "  --speed N              instructions per frame in play mode (default 10)\n"
         "  --sound on|off|wav     choose live audio, silence, or WAV capture\n"
-        "  --sound-file PATH      WAV output path (default chip8.wav)\n"
+        "  --sound-file PATH      WAV output path (default nacre.wav)\n"
         "  --dump PATH            write the framebuffer to a file instead of stdout\n"
         "  --render half|full     choose terminal pixel rendering (default half)\n"
         "  --seed N               set the random-number seed\n"
@@ -123,7 +123,7 @@ static int parse_options(int argc, char **argv, Options *options, int *show_help
     options->cycles = DEFAULT_CYCLES;
     options->speed = DEFAULT_SPEED;
     options->sound_mode = SOUND_OFF;
-    options->sound_file = "chip8.wav";
+    options->sound_file = "nacre.wav";
     options->seed = (uint32_t)time(NULL) ^ ((uint32_t)getpid() * 2654435761u);
     *show_help = 0;
 
@@ -339,11 +339,11 @@ static void poll_input(Chip8 *chip8, int durations[16], int *running,
 
 static void draw_status(int speed, int paused, int sound_enabled, SoundMode mode) {
     if (paused) {
-        fputs("CHIP-8  PAUSED  [p resume, R reset, Esc quit]\n", stdout);
+        fputs("Nacre  PAUSED  [p resume, R reset, Esc quit]\n", stdout);
     } else {
         const char *sound = mode == SOUND_OFF ? "off" : (sound_enabled ? "on" : "muted");
         fprintf(stdout,
-                "CHIP-8  %d cycles/frame  sound %s  [p pause, R reset, +/- speed, m mute, Esc quit]\n",
+                "Nacre  %d cycles/frame  sound %s  [p pause, R reset, +/- speed, m mute, Esc quit]\n",
                 speed, sound);
     }
 }

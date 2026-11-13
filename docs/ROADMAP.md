@@ -1,9 +1,9 @@
-# Roadmap: a Mac desktop CHIP-8 emulator
+# Nacre desktop roadmap
 
 Status: proposed implementation plan. Reviewed against `f230915` on 2026-11-13.
 The current release is a terminal emulator; the desktop features below are planned.
-The product name is being chosen separately. Keep the existing repository and
-executable names until that decision is made.
+The product is named Nacre and the executable is `nacre`. The repository remains
+`tdotlab/emulator`; `chip8_*` identifiers describe the emulated architecture.
 
 ## The first result we want
 
@@ -182,8 +182,8 @@ minimum. Prefer an `arm64` + `x86_64` universal app if both can be built and val
 otherwise label separate builds accurately. Set and test the deployment target rather
 than inferring support from a successful build on a newer OS.
 
-Apply the chosen name, stable bundle identifier, version, icon, and About information
-in one branding pass. Store preferences in the user's application-data location,
+Use Nacre for the app name and choose a stable bundle identifier, version, icon, and
+About information. Store preferences in the user's application-data location,
 never inside the app bundle. Add recent ROMs and a small set of display palettes;
 handle missing/corrupt settings without preventing startup. Replace provisional PNGs
 with real app captures after the Mac UI exists.
@@ -241,7 +241,7 @@ Suggested first prompt after returning to Luna:
 > time. Replace the headless 17-instruction timer rule, document any CLI timing changes,
 > and keep this target free of SDL dependencies. Run the relevant checks and update
 > the roadmap with actual results. Finish with a coherent commit under the owner's
-> existing repository authorization. Leave the desktop, rename, and release work for
+> existing repository authorization. Leave the desktop and release work for
 > subsequent milestones.
 
 For each following prompt, name the next slice and copy its completion criteria.
@@ -252,8 +252,8 @@ item open.
 
 ## Decisions to resolve before shipping
 
-The owner is choosing the product name. Mac architecture/minimum OS, project license,
-and availability of Developer ID signing remain open. These do not block core work or
+The product name is Nacre. Mac architecture/minimum OS, project license, and
+availability of Developer ID signing remain open. These do not block core work or
 the first desktop window; they do affect a distributable release. This plan does not
 authorize purchases, account enrollment, or uploading a public release.
 

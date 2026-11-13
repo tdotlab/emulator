@@ -1,5 +1,5 @@
 #!/bin/sh
-# Launch a CHIP-8 ROM from the bundled collection.
+# Launch Nacre with a chosen CHIP-8 ROM.
 #   ./play              pick a ROM from the list
 #   ./play path/to.ch8  play a specific ROM
 set -eu
@@ -8,7 +8,7 @@ DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 ROMS="$DIR/roms"
 
 if [ $# -ge 1 ] && [ -f "$1" ]; then
-    exec "$DIR/chip8" "$1" --play
+    exec "$DIR/nacre" "$1" --play
 fi
 
 if [ ! -d "$ROMS" ]; then
@@ -46,6 +46,6 @@ for f in "$ROMS"/*.ch8; do
     [ -e "$f" ] || continue
     j=$((j + 1))
     if [ "$j" -eq "$choice" ]; then
-        exec "$DIR/chip8" "$f" --play
+        exec "$DIR/nacre" "$f" --play
     fi
 done
