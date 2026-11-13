@@ -1,46 +1,90 @@
-# CHIP-8 Emulator
+# Chip-8 Emulator (C, stdlib only)
 
-A deliberately small, from-scratch CHIP-8 emulator that runs in a browser.
+A minimal Chip-8 interpreter written in plain C. No dependencies beyond a C compiler.
 
-The point is not to produce the world's 800th emulator and pretend that was useful. The point is to make each piece of a tiny computer understandable: memory, registers, a program counter, an instruction loop, a screen, timers, and input.
+## Build
 
-## Run it in a Codespace
+```sh
+make
+```
 
-No dependencies are required.
+## Play a game
 
-1. Open this repository in a GitHub Codespace.
-2. In its terminal, run `python3 -m http.server 8000`.
-3. Open the forwarded port in the browser.
+```sh
+./play                 # pick a ROM from the bundled collection
+./play path/to.ch8     # play a specific ROM
+./chip8 path/to.ch8 --play [--speed N]
+```
 
-You can also open `index.html` directly for the initial screen, but use a local server once modules are involved.
+The emulator renders the 64x32 display in the terminal using half-block characters
+(64x16 cells), so it fits in an 80-column terminal.
 
-## Project shape
+Key map:
 
-- `src/chip8.js` — the emulated machine: memory, registers, CPU cycle, timers.
-- `src/main.js` — browser controls and drawing the 64×32 CHIP-8 display.
-- `index.html` and `styles.css` — a plain browser interface; no framework smuggled in under a trench coat.
+```
+1 2 3 4        -> Chip-8 keys 1 2 3 C
+Q W E R        -> 4 5 6 D
+A S D F        -> 7 8 9 E
+Z X C V        -> A 0 B F
+```
 
-## Learning path
+Controls:
 
-- [x] Make a browser shell with a correctly sized pixel display.
-- [x] Create the basic machine state.
-- [ ] Write a tiny program directly into memory and inspect the opcode fetch.
-- [ ] Decode and implement a few instructions: `CLS`, `JP`, `LD`, and `ADD`.
-- [ ] Load a ROM file at address `0x200`.
-- [ ] Implement drawing, keypad input, stack calls, and timers.
-- [ ] Run a public CHIP-8 test ROM, then a game.
+| Key     | Action                        |
+| ------- | ----------------------------- |
+| `p`     | pause / resume                |
+| `R`     | reset the ROM                 |
+| `+`/`-` | increase / decrease speed     |
+| `m`     | mute / unmute sound           |
+| `ESC`   | quit                          |
 
-Each checkpoint should be committed separately. When something breaks, a small commit gives us a crime scene instead of a landfill.
+Uppercase `Q` also quits. `--speed N` sets cycles per frame (default 10, ~600
+instructions/sec at 60 fps); `+`/`-` adjust it live. Keys are held for a few
+frames after a press, so taps and short holds both register.
 
-## CHIP-8 facts worth keeping nearby
+The display defaults to half-block rendering. Use `--render full` for the old
+double-width `██` rendering, or `--render half` to restore the compact one.
 
-| Part | Value |
-| --- | --- |
-| Memory | 4 KB (4096 bytes) |
-| Display | 64 × 32 monochrome pixels |
-| General registers | 16, named V0–VF |
-| Program start | `0x200` |
-| Opcode width | 2 bytes |
-| Keypad | 16 hexadecimal keys |
+## ROMs
 
-The classic reference is [Cowgod's CHIP-8 Technical Reference](http://devernay.free.fr/hacks/chip8/C8TECH10.HTM). It is useful, but CHIP-8 has a few historical quirks; we will choose and document one behaviour where implementations disagree.
+The `roms` directory is a symlink to a CHIP-8 program pack (75 games, demos and
+programs). To download or update it:
+
+```sh
+./get-roms.sh
+```
+
+The collection comes from <https://github.com/kripod/chip8-roms>. Any `.ch8`
+file can be played directly: `./chip8 my-game.ch8 --play`.
+
+## Headless mode (testing)
+
+```sh
+./chip8 path/to/rom.ch8 [--cycles N] [--dump path|-] [--selftest]
+```
+
+- `--cycles N` — number of CPU cycles to run (default 2000).
+- `--dump path` — write the 64x32 framebuffer to `path` (default stdout).
+- `--selftest` — run an embedded ROM that draws a `0` digit.
+
+```sh
+./chip8 hello.ch8 --cycles 50
+```
+
+## Sound
+
+The Chip-8 has a 1-bit buzzer that sounds while `sound_timer > 0`.
+
+- `--sound bell` — ring the terminal bell once per 60 Hz tick (default in `--play`).
+- `--sound wav --sound-file out.wav` — write a synthesized 440 Hz square wave to a WAV file.
+- `--sound off` — silence.
+
+`sound.ch8` sets the buzzer for 10 timer ticks and loops; it is a handy test ROM.
+
+## Notes
+
+- Display is 64x32; headless `--dump` writes `#` (on) / `.` (off).
+- Timers tick at ~60 Hz.
+- Keyboard input is tracked in `keys[16]`; `Fx0A` waits for a press. In headless
+  mode this blocks, so most ROMs should be tested with a cycle cap.
+- No graphics backend beyond the terminal front-end; SDL is a natural next step.

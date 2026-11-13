@@ -1,0 +1,51 @@
+#!/bin/sh
+# Launch a CHIP-8 ROM from the bundled collection.
+#   ./play              pick a ROM from the list
+#   ./play path/to.ch8  play a specific ROM
+set -eu
+
+DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+ROMS="$DIR/roms"
+
+if [ $# -ge 1 ] && [ -f "$1" ]; then
+    exec "$DIR/chip8" "$1" --play
+fi
+
+if [ ! -d "$ROMS" ]; then
+    echo "No roms directory found at $ROMS" >&2
+    exit 1
+fi
+
+i=0
+for f in "$ROMS"/*.ch8; do
+    [ -e "$f" ] || continue
+    i=$((i + 1))
+    printf '%3d) %s\n' "$i" "$(basename "$f")"
+done
+
+if [ "$i" -eq 0 ]; then
+    echo "No .ch8 ROMs found in $ROMS" >&2
+    exit 1
+fi
+
+printf 'Select a ROM [1-%d] (q to quit): ' "$i"
+read -r choice
+case "$choice" in
+    q | Q) exit 0 ;;
+esac
+case "$choice" in
+    '' | *[!0-9]*) echo "Invalid selection" >&2; exit 1 ;;
+esac
+if [ "$choice" -lt 1 ] || [ "$choice" -gt "$i" ]; then
+    echo "Out of range" >&2
+    exit 1
+fi
+
+j=0
+for f in "$ROMS"/*.ch8; do
+    [ -e "$f" ] || continue
+    j=$((j + 1))
+    if [ "$j" -eq "$choice" ]; then
+        exec "$DIR/chip8" "$f" --play
+    fi
+done
