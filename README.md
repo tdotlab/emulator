@@ -63,6 +63,8 @@ The macOS build is `build/Nacre.app`. Windows and Linux produce a `Nacre` execut
 | `Cmd+O` / `Ctrl+O` | Open a ROM |
 | `Cmd+Q` / `Ctrl+Q`, `Esc` | Quit |
 
+The [Desktop builds workflow](https://github.com/tdotlab/nacre/actions/workflows/desktop.yml) uploads unsigned CI artifacts for each OS. Its macOS artifact is a universal `Nacre.app` for Apple Silicon and Intel. CI confirms that the apps compile; native launch, input, and audio checks are still pending.
+
 The window keeps the CHIP-8 display's 2:1 aspect ratio and uses nearest-neighbor scaling. The desktop sound output uses SDL3 and the same oscillator as the terminal and WAV backends. macOS, Windows, and Linux builds are separate because each OS needs its own executable and packaging; the emulator core and desktop source are shared. Linux may need the SDL development packages listed in `.github/workflows/desktop.yml` to build window and audio drivers.
 
 ## Interpreter behavior

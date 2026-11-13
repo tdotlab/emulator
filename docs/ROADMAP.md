@@ -3,9 +3,10 @@
 Status: Milestone A is complete. A plain SDL3 desktop prototype now shares the C
 core across macOS, Windows, and Linux builds. It includes the bundled demo, ROM
 picker, keyboard input, pause/reset/mute, and timer-driven sound. CMake pins SDL3
-3.4.20 and CI is configured to build each OS and upload artifacts. The desktop
-target has not been compiled in this workspace because CMake and SDL3 are
-unavailable here; CI and native Mac/Windows/Linux runtime checks remain pending.
+3.4.20. CI has built all three OS targets and uploaded artifacts; the macOS app
+is universal for arm64 and x86_64. The desktop target has not been compiled in
+this workspace because CMake and SDL3 are unavailable here. Native Mac/Windows/
+Linux runtime checks remain pending.
 Initial architecture review: `f230915` (2026-11-13).
 The terminal frontend remains available while the desktop prototype is validated.
 The product is named Nacre and the executable is `nacre`. The repository remains
@@ -72,8 +73,8 @@ These are source observations, not newly reproduced runtime failures.
 | Unsupported extensions | The `0nnn` branch ignores system calls, including encodings used by some later extensions | Diagnose known unsupported extension instructions instead of apparently running incompatible games |
 | Audio | Shared oscillator feeds WAV/SDL2 CLI sinks and the SDL3 desktop callback | Verify both live sinks on devices; report write/close errors and define final partial recording behavior |
 | Verification | Scheduler/key-wait/core checks, CLI ROM runs, WAV duration/format checks, and a 20,000-cycle smoke run of seven Timendus ROMs pass | Review visual test results in the desktop; crash-free execution alone does not prove opcode correctness |
-| Mac readiness | SDL3/CMake prototype and app bundle target exist; no native build or Mac run yet | Build the bundle, verify its bundled ROM/audio, and test launch/input on a real Mac |
-| Distribution | OS build matrix is configured to upload unsigned artifacts and include SDL's license; project license and demo-ROM provenance remain open | Run the matrix; choose a project license, verify demo/asset permissions, and retain notices before distribution |
+| Mac readiness | CI builds an unsigned universal app bundle; it has not been launched on a Mac | Verify bundled ROM/audio, launch, and input on a real Mac |
+| Distribution | CI successfully uploads unsigned OS artifacts with SDL's license; project license and demo-ROM provenance remain open | Choose a project license, verify demo/asset permissions, and retain notices before distribution |
 
 The SDL2 terminal live sink has not been compiled or heard in this workspace. The
 desktop SDL3 audio path also needs a real-device listening check. A successful WAV
@@ -157,14 +158,15 @@ timer-driven sound. CMake creates a macOS `.app` and Windows/Linux
 executables with the same source. SDL3 is linked statically; the existing Makefile
 CLI remains separate.
 
-The CI matrix is configured to build all three OS targets and upload artifacts. It
-has not run yet for this prototype. This environment also lacks CMake and SDL3
-headers, so no local desktop compile or native runtime claim is made.
+The CI matrix successfully built all three OS targets and uploaded artifacts. The
+macOS artifact preserves the `.app` bundle and contains a universal arm64/x86_64
+binary. This environment lacks CMake and SDL3 headers, so no local desktop compile
+or native runtime claim is made.
 
-**Acceptance still pending:** CI must compile the three builds; a Mac user must launch
-the app, open a ROM, verify keypad down/up behavior and sound, and inspect the
-Timendus opcode, flags, keypad, and quirks results. Windows and Linux need native
-launch/input/audio checks before they are described as runtime-verified.
+**Acceptance still pending:** A Mac user must launch the app, open a ROM, verify
+keypad down/up behavior and sound, and inspect the Timendus opcode, flags, keypad,
+and quirks results. Windows and Linux need native launch/input/audio checks before
+they are described as runtime-verified.
 
 ## Milestone C: friend-test preview
 
@@ -191,10 +193,10 @@ Use that feedback before adding visual polish or a larger library interface.
 
 ## Milestone D: polish and repeatable Mac distribution
 
-Confirm the friend's Mac architecture and macOS version before choosing the supported
-minimum. Prefer an `arm64` + `x86_64` universal app if both can be built and validated;
-otherwise label separate builds accurately. Set and test the deployment target rather
-than inferring support from a successful build on a newer OS.
+Confirm the friend's macOS version before choosing the supported minimum. CI now builds
+an `arm64` + `x86_64` universal app; validate it on both architectures before treating
+both as runtime-supported. Set and test the deployment target rather than inferring
+support from a successful build on a newer OS.
 
 Use Nacre for the app name and choose a stable bundle identifier, version, icon, and
 About information. Store preferences in the user's application-data location,
