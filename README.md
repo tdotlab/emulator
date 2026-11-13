@@ -45,6 +45,20 @@ frames after a press, so taps and short holds both register.
 The display defaults to half-block rendering. Use `--render full` for the old
 double-width `██` rendering, or `--render half` to restore the compact one.
 
+## Screenshots
+
+The 64x32 display, captured from the emulator running real ROMs. The images
+are SVG renderings of the exact framebuffer — no ROMs are included in this repo.
+
+![IBM Logo](screenshots/ibm-logo.svg)
+*IBM Logo — the classic first test.*
+
+![Tetris](screenshots/tetris.svg)
+*Tetris (Fran Dachille, 1991) mid-game — a piece falling into the well.*
+
+![Breakout](screenshots/breakout.svg)
+*Breakout (Carmelo Cortez, 1979) — bricks and paddle, waiting for serve.*
+
 ## ROMs
 
 The `roms` directory is a symlink to a CHIP-8 program pack (75 games, demos and
